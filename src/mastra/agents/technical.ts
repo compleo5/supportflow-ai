@@ -1,6 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { knowledgeBaseTool } from '../tools/vector-query';
 import { sharedMemory } from '../memory';
+import { promptInjectionDetector, secretsOutputFilter } from '../processors';
 
 export const technicalAgent = new Agent({
   id: 'technical-agent',
@@ -41,6 +42,8 @@ End your response with a line:
 CONFIDENCE: [score]
 
 Always use the search-knowledge-base tool to look up troubleshooting guides before answering.`,
+  inputProcessors: [promptInjectionDetector],
+  outputProcessors: [secretsOutputFilter],
   model: 'anthropic/claude-sonnet-4-5',
   tools: { knowledgeBaseTool },
 });

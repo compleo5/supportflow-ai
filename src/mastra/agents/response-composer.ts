@@ -1,6 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { sharedMemory } from '../memory';
 import { answerRelevancyScorer } from '../evals/scorers';
+import { promptInjectionDetector, piiOutputRedactor, secretsOutputFilter, emailTokenLimiter } from '../processors';
 
 export const responseComposerAgent = new Agent({
   id: 'response-composer',
@@ -50,5 +51,9 @@ Return ONLY the final email text. No preamble, no explanation. Just the email th
 
 End your response with a line:
 CONFIDENCE: [score matching the specialist's confidence]`,
+  // Block injection in the specialist draft that gets composed.
+  // On output: redact PII, catch secrets, and cap email length at 800 tokens.
+  inputProcessors: [promptInjectionDetector],
+  outputProcessors: [piiOutputRedactor, secretsOutputFilter, emailTokenLimiter],
   model: 'anthropic/claude-haiku-4-5',
 });

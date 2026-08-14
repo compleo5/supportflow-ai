@@ -1,5 +1,6 @@
 import { Agent } from '@mastra/core/agent';
 import { sharedMemory } from '../memory';
+import { promptInjectionDetector, secretsOutputFilter } from '../processors';
 
 export const escalationAgent = new Agent({
   id: 'escalation-agent',
@@ -49,5 +50,7 @@ End your response with:
 CONFIDENCE: 95
 
 (Escalation handoffs are always high confidence — the decision to escalate itself is the correct action.)`,
+  inputProcessors: [promptInjectionDetector],
+  outputProcessors: [secretsOutputFilter],
   model: 'anthropic/claude-haiku-4-5',
 });
