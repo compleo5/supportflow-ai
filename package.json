@@ -1,13 +1,21 @@
 {
   "name": "supportflow-ai",
   "version": "1.0.0",
-  "description": "A general-purpose Mastra agent with a local workspace, shell tools, memory, task tracking, web access, and recurring schedules.",
+  "description": "SupportFlow AI — Multi-agent customer support system built with Mastra",
   "main": "index.js",
   "private": true,
   "scripts": {
     "dev": "mastra dev",
     "build": "mastra build",
-    "start": "mastra start"
+    "start": "mastra start",
+    "ingest": "npx tsx src/scripts/ingest.ts",
+    "seed-demo": "npx tsx src/scripts/seed-demo.ts",
+    "test": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:watch": "vitest",
+    "test:eval": "vitest run tests/eval --reporter=verbose",
+    "review-ui": "npx serve src/review-ui -p 3456 --cors",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
@@ -17,16 +25,23 @@
     "node": ">=22.13.0"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^4.0.36",
     "@mastra/core": "1.57.0",
     "@mastra/duckdb": "1.6.0",
+    "@mastra/evals": "^1.7.0",
+    "@mastra/fastembed": "^1.2.0",
     "@mastra/libsql": "1.19.0",
     "@mastra/memory": "1.26.0",
     "@mastra/observability": "1.16.5",
+    "@mastra/rag": "^2.4.2",
+    "ai": "^7.0.58",
+    "dotenv": "^17.4.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "latest",
     "mastra": "1.23.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   }
 }

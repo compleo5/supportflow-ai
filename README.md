@@ -1,58 +1,194 @@
-# supportflow-ai
+# SupportFlow AI
 
-Welcome to your new [Mastra](https://mastra.ai) project! We're excited to see what you build.
+A multi-agent customer support system built with [Mastra](https://mastra.ai) that classifies incoming emails, routes to specialized AI agents, pulls answers from a knowledge base, and drafts polished responses — with confidence-gated human-in-the-loop review and a learning feedback loop.
 
-This starter provides you with a general-purpose Mastra agent that can research current information, manage multi-step tasks, work with local files, run approved shell commands, and create recurring schedules.
+**Built as a portfolio project demonstrating AI product management skills:** system design, agent orchestration, human-AI collaboration, cost optimization, and measurable outcomes.
 
-## Features
+## Architecture
 
-- A project-level `workspace/` for files and command execution
-- Approval gates for file changes, deletions, and shell commands
-- Conversation memory, generated thread titles, and task tracking
-- Built-in web search and direct web page fetching
-- Recurring schedules that persist across restarts
-- Local libSQL storage and DuckDB observability, with optional Turso storage
-- A bundled Mastra skill that helps coding agents use current Mastra APIs
+```mermaid
+flowchart TD
+    A[Incoming Email] --> B[Rate Limiter]
+    B --> C[Pre-Filter]
+    C -->|spam/sales/recruiting| X[Rejected]
+    C --> D[Triage Agent]
+    D --> E{Classification}
 
-## Get started
+    E -->|faq| F[FAQ Agent<br/>Haiku + RAG]
+    E -->|billing| G[Billing Agent<br/>Sonnet + RAG + Guardrails]
+    E -->|technical| H[Technical Agent<br/>Sonnet + RAG + Diagnostics]
+    E -->|escalation| I[Escalation Agent<br/>Haiku + Handoff Doc]
 
-Set your `ANTHROPIC_API_KEY` in `.env` or in your environment, then run:
+    F --> J[Response Composer]
+    G --> J
+    H --> J
+    I --> K{Zendesk + Slack}
 
-```shell
+    J --> L{Confidence Gate<br/>≥85%?}
+    L -->|Yes| M[Auto-sent → Zendesk Ticket]
+    L -->|No| N[Queued for Human Review]
+
+    N --> O[Review UI]
+    O -->|Approve| P[Send via Zendesk + Add to KB]
+    O -->|Edit| Q[Send Edited via Zendesk + Add Correction to KB]
+    O -->|Reject| R[Flag Pattern]
+
+    P --> S[Learning Loop]
+    Q --> S
+    R --> S
+    S --> T[Knowledge Base Updated]
+```
+
+## Agents
+
+| Agent | Model | Role |
+|---|---|---|
+| **Triage Agent** | Claude Haiku | Classifies intent, urgency, sentiment. Detects multi-intent emails. |
+| **FAQ Agent** | Claude Haiku | Answers product/feature questions via RAG over knowledge base. |
+| **Billing Agent** | Claude Sonnet | Handles refunds, subscriptions, payments. Enforces $500 refund guardrail. |
+| **Technical Agent** | Claude Sonnet | Troubleshooting with structured diagnostic flows from runbooks. |
+| **Escalation Agent** | Claude Haiku | Generates structured handoff documents for human agents. |
+| **Response Composer** | Claude Haiku | Polishes specialist drafts into on-brand customer-facing emails. |
+
+**Model routing rationale:** Haiku for simple/fast tasks (triage, FAQ, escalation, composing). Sonnet for complex reasoning (billing policy enforcement, technical diagnosis).
+
+## Key Features
+
+- **Confidence Gate** — Responses scoring ≥85% are auto-sent. Below threshold → queued for human review.
+- **Human-in-the-Loop Review UI** — Dark-themed dashboard to approve, edit, or reject agent responses.
+- **Learning Loop** — Approved responses strengthen the KB. Edited responses add corrections. Rejected responses flag patterns.
+- **Knowledge Base (RAG)** — 43 chunks across FAQ, product docs, billing policies, and troubleshooting runbooks. Local embeddings via fastembed.
+- **Zendesk Integration** — Every response creates or replies to a ticket. Escalations get priority tagging.
+- **Slack Alerts** — Escalations trigger formatted alerts with handoff docs and ticket IDs.
+- **Rate Limiting** — Per-customer throttle (10 req/hour) prevents abuse.
+- **Pre-Filter** — Catches spam, sales, and recruiting emails before triage.
+- **Prompt Versioning** — Every response tagged with a prompt hash for traceability.
+- **Eval Suite** — 20 test emails across 4 categories for classification accuracy testing.
+- **Customer Context** — Simulated tier + ticket history enrichment for personalized responses.
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js ≥ 22
+- Anthropic API key
+
+### Setup
+
+```bash
+cd supportflow-ai
+npm install
+
+# Configure
+cp .env.example .env
+# Edit .env and add your ANTHROPIC_API_KEY
+
+# Seed the knowledge base (uses local embeddings, no API key needed)
+npm run ingest
+
+# Start the dev server + Mastra Studio
 npm run dev
 ```
 
-Open [http://localhost:4111](http://localhost:4111) in your browser to access [Mastra Studio](https://mastra.ai/docs/studio/overview).
+### Access
 
-Select **Agent** in Mastra Studio and try one of these prompts:
+| Service | URL |
+|---|---|
+| Mastra Studio | http://localhost:4111 |
+| Review UI | `npm run review-ui` → http://localhost:3456 |
 
-- `Get the weather forecast for Austin this weekend.`
-- `Create a landing page for a Japanese sakura festival.`
-- `Check the SPCX stock price now, then check it every minute.`
+### Optional Integrations
 
-The agent asks for approval before it changes files or runs commands. When it creates a schedule, it returns an ID that you can use to pause the schedule.
+Set these in `.env` for live mode (omit for demo mode with console logging):
 
-## Workspace safety
+```env
+# Zendesk
+ZENDESK_DOMAIN=yourcompany.zendesk.com
+ZENDESK_EMAIL=agent@yourcompany.com
+ZENDESK_API_TOKEN=your-token
 
-The local filesystem tools stay inside the project-level `workspace/` directory. Shell commands start in that directory, but `LocalSandbox` does not provide operating-system isolation by default. Review command approvals carefully, and do not expose this template through an unauthenticated public server.
+# Slack
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
 
-## Storage
+# Email (Resend — only needed if sending outside Zendesk)
+RESEND_API_KEY=re_...
+```
 
-The default `file:./mastra.db` database stores agent memory, tasks, and schedules locally. To use Turso, set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` in `.env`.
+## Scripts
 
-Recurring schedules continue to use model tokens until you pause them. Ask the agent to pause a schedule with the ID returned by `start_schedule`.
+| Command | Description |
+|---|---|
+| `npm run dev` | Start Mastra dev server + Studio |
+| `npm run ingest` | Seed knowledge base with support docs |
+| `npm test` | Run unit tests (21 tests) |
+| `npm run test:eval` | Run triage eval suite (20 test emails, needs API key) |
+| `npm run review-ui` | Serve the Review UI dashboard |
+| `npm run typecheck` | TypeScript type checking |
 
-## Making it yours
+## Project Structure
 
-- Edit `src/mastra/agents/agent.ts` to change the model, instructions, memory, workspace, or approval policy.
-- Edit `src/mastra/tools/` to customize scheduling.
-- Edit `src/mastra/index.ts` to change storage and observability.
-- Add files or reusable skills under `workspace/` for the agent to use.
+```
+src/
+├── mastra/
+│   ├── index.ts                    # Mastra instance — registers all agents, tools, workflows
+│   ├── memory.ts                   # Shared memory config for thread continuity
+│   ├── agents/
+│   │   ├── triage.ts               # Email classifier (intent, urgency, sentiment)
+│   │   ├── faq.ts                  # Product/feature Q&A with RAG
+│   │   ├── billing.ts             # Billing specialist with policy guardrails
+│   │   ├── technical.ts           # Technical troubleshooter with diagnostics
+│   │   ├── escalation.ts          # Human handoff document generator
+│   │   └── response-composer.ts   # Draft → polished email transformer
+│   ├── workflows/
+│   │   └── support-pipeline.ts    # Full pipeline: filter → triage → route → compose → integrate
+│   ├── tools/
+│   │   ├── vector-query.ts        # RAG tool — searches KB via fastembed + LibSQL
+│   │   ├── ingest-knowledge.ts    # Chunks + embeds markdown docs into vector store
+│   │   ├── response-store.ts      # Response storage + confidence gate + review status
+│   │   ├── review-api.ts          # Review UI API (dashboard, detail, submit review)
+│   │   ├── learning-loop.ts       # Feeds reviewed responses back into KB
+│   │   ├── zendesk.ts             # Zendesk API (create/update/search tickets)
+│   │   ├── email.ts               # Email sending (Resend) + inbox polling
+│   │   ├── slack.ts               # Slack notifications + escalation alerts
+│   │   └── rate-limiter.ts        # Per-customer request throttling
+│   └── knowledge/                  # KB seed documents (markdown)
+│       ├── faq.md
+│       ├── product-guide.md
+│       ├── billing-policy.md
+│       └── troubleshooting.md
+├── review-ui/
+│   └── index.html                  # Review dashboard (standalone HTML)
+└── scripts/
+    └── ingest.ts                   # KB ingestion runner
 
-## Learn more
+tests/
+├── unit/                           # Agent + workflow unit tests (21 tests)
+└── eval/                           # Triage classification eval suite (20 test emails)
+```
 
-To learn more about Mastra, visit our [documentation](https://mastra.ai/docs/). If you're new to AI agents, check out our [course](https://mastra.ai/learn) and [YouTube videos](https://youtube.com/@mastra-ai). You can also join our [Discord](https://discord.gg/BTYqqHKUrf) community to get help and share your projects.
+## Design Decisions
 
-## Deploy to the Mastra platform
+| Decision | Rationale |
+|---|---|
+| **85% confidence threshold** | Balances automation vs. quality. Tunable based on eval data. |
+| **Model routing (Haiku vs Sonnet)** | ~70% of tickets are simple FAQ → cheap model. Complex billing/tech → capable model. |
+| **Human-in-the-loop as default** | System earns autonomy as confidence improves. Safer rollout. |
+| **Learning loop over fine-tuning** | RAG updates are cheaper, faster, and more auditable. |
+| **Zendesk as source of truth** | Every interaction = ticket. No replies sent outside Zendesk to avoid duplicates. |
+| **Local embeddings (fastembed)** | No OpenAI dependency. Runs offline. One less API key. |
+| **Demo mode for integrations** | Zendesk/Slack/Email work without credentials for portfolio demos. |
 
-The [Mastra platform](https://projects.mastra.ai) provides two products for deploying and managing AI applications built with the Mastra framework. Learn more in the [Mastra platform documentation](https://mastra.ai/docs/mastra-platform/overview).
+## Tech Stack
+
+| Component | Technology |
+|---|---|
+| AI Framework | Mastra |
+| Language | TypeScript (strict, ES2022) |
+| LLM | Claude Sonnet 4.5 + Haiku 4.5 |
+| Embeddings | fastembed (local, no API) |
+| Vector Store | LibSQL |
+| Memory | @mastra/memory |
+| Ticketing | Zendesk API |
+| Notifications | Slack Webhooks |
+| Testing | Vitest |
+| Dev UI | Mastra Studio |

@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SupportFlow AI — Review Dashboard</title>
+  <style>
+    :root {
+      --bg: #0a0a0b;
+      --surface: #141416;
+      --surface-2: #1c1c1f;
+      --border: #2a2a2e;
+      --text: #e4e4e7;
+      --text-muted: #71717a;
+      --accent: #6366f1;
+      --accent-hover: #818cf8;
+      --green: #22c55e;
+      --yellow: #eab308;
+      --red: #ef4444;
+      --orange: #f97316;
+      --blue: #3b82f6;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .header {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header h1 {
+      font-size: 18px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header .logo { color: var(--accent); }
+
+    .stats-bar {
+      display: flex;
+      gap: 24px;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+
+    .stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 80px;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 24px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab {
+      padding: 12px 16px;
+      cursor: pointer;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      font-size: 14px;
+      transition: all 0.15s;
+    }
+
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .tab .badge {
+      background: var(--accent);
+      color: white;
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      margin-left: 6px;
+    }
+
+    .content { padding: 24px; }
+
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+
+    .empty h3 { margin-bottom: 8px; color: var(--text); }
+
+    .response-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .response-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+
+    .response-card:hover { border-color: var(--accent); }
+
+    .response-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+
+    .response-card-meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .badge-pill {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+
+    .badge-faq { background: #1e3a5f; color: #60a5fa; }
+    .badge-billing { background: #3b1f0b; color: #fb923c; }
+    .badge-technical { background: #1a2e1a; color: #4ade80; }
+    .badge-escalation { background: #3b1111; color: #f87171; }
+    .badge-pending { background: #422006; color: var(--yellow); }
+    .badge-auto-sent { background: #052e16; color: var(--green); }
+    .badge-approved { background: #052e16; color: var(--green); }
+    .badge-edited { background: #1e3a5f; color: var(--blue); }
+    .badge-rejected { background: #3b1111; color: var(--red); }
+
+    .confidence-bar {
+      width: 60px;
+      height: 6px;
+      background: var(--surface-2);
+      border-radius: 3px;
+      overflow: hidden;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 4px;
+    }
+
+    .confidence-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+
+    .confidence-high { background: var(--green); }
+    .confidence-mid { background: var(--yellow); }
+    .confidence-low { background: var(--red); }
+
+    .response-card-preview {
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.5;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .response-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Detail modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 40px 20px;
+      overflow-y: auto;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      max-width: 800px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h2 { font-size: 16px; }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 20px;
+      padding: 4px;
+    }
+
+    .modal-body { padding: 24px; }
+
+    .detail-section {
+      margin-bottom: 20px;
+    }
+
+    .detail-section h3 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .detail-section .content-block {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 14px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    .detail-meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .meta-item {
+      background: var(--surface-2);
+      padding: 10px 12px;
+      border-radius: 6px;
+    }
+
+    .meta-item .label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .meta-item .value {
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      padding: 20px 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+
+    .btn-approve { background: var(--green); color: white; border-color: var(--green); }
+    .btn-approve:hover { opacity: 0.9; }
+    .btn-edit { background: var(--blue); color: white; border-color: var(--blue); }
+    .btn-edit:hover { opacity: 0.9; }
+    .btn-reject { background: var(--red); color: white; border-color: var(--red); }
+    .btn-reject:hover { opacity: 0.9; }
+    .btn-secondary { background: var(--surface-2); color: var(--text); }
+
+    .feedback-area {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 10px;
+      font-size: 13px;
+      resize: vertical;
+      min-height: 60px;
+      font-family: inherit;
+      margin-top: 8px;
+    }
+
+    .edit-area {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 12px;
+      font-size: 14px;
+      resize: vertical;
+      min-height: 120px;
+      font-family: inherit;
+      line-height: 1.6;
+    }
+
+    .refresh-btn {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .refresh-btn:hover { border-color: var(--accent); }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--green);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 200;
+      display: none;
+    }
+
+    .toast.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1><span class="logo">&#9670;</span> SupportFlow AI — Review Dashboard</h1>
+    <button class="refresh-btn" onclick="loadDashboard()">Refresh</button>
+  </div>
+
+  <div class="stats-bar" id="stats-bar"></div>
+
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-filter="all" onclick="setFilter('all')">All</div>
+    <div class="tab" data-filter="pending" onclick="setFilter('pending')">Pending Review <span class="badge" id="pending-badge">0</span></div>
+    <div class="tab" data-filter="auto-sent" onclick="setFilter('auto-sent')">Auto-sent</div>
+    <div class="tab" data-filter="approved" onclick="setFilter('approved')">Approved</div>
+    <div class="tab" data-filter="edited" onclick="setFilter('edited')">Edited</div>
+    <div class="tab" data-filter="rejected" onclick="setFilter('rejected')">Rejected</div>
+  </div>
+
+  <div class="content" id="response-list"></div>
+
+  <!-- Detail Modal -->
+  <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modal-title">Response Detail</h2>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+      <div class="actions" id="modal-actions"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const API = 'http://localhost:4111/api';
+    let currentFilter = 'all';
+    let allResponses = [];
+
+    async function callTool(toolId, input) {
+      const res = await fetch(`${API}/tools/${toolId}/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: input }),
+      });
+      return res.json();
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+    function confidenceColor(score) {
+      if (score >= 85) return 'confidence-high';
+      if (score >= 50) return 'confidence-mid';
+      return 'confidence-low';
+    }
+
+    function renderStats(stats) {
+      document.getElementById('stats-bar').innerHTML = `
+        <div class="stat"><div class="stat-value">${stats.total}</div><div class="stat-label">Total</div></div>
+        <div class="stat"><div class="stat-value" style="color:var(--yellow)">${stats.pending}</div><div class="stat-label">Pending</div></div>
+        <div class="stat"><div class="stat-value" style="color:var(--green)">${stats.autoSent}</div><div class="stat-label">Auto-sent</div></div>
+        <div class="stat"><div class="stat-value" style="color:var(--green)">${stats.approved}</div><div class="stat-label">Approved</div></div>
+        <div class="stat"><div class="stat-value" style="color:var(--blue)">${stats.edited}</div><div class="stat-label">Edited</div></div>
+        <div class="stat"><div class="stat-value" style="color:var(--red)">${stats.rejected}</div><div class="stat-label">Rejected</div></div>
+        <div class="stat"><div class="stat-value">${stats.avgConfidence}%</div><div class="stat-label">Avg Confidence</div></div>
+        <div class="stat"><div class="stat-value">${stats.autoSendRate}%</div><div class="stat-label">Auto-send Rate</div></div>
+      `;
+      document.getElementById('pending-badge').textContent = stats.pending;
+    }
+
+    function renderResponses(responses) {
+      const list = document.getElementById('response-list');
+      if (responses.length === 0) {
+        list.innerHTML = `<div class="empty"><h3>No responses yet</h3><p>Run the support-pipeline workflow in Mastra Studio to generate responses.</p></div>`;
+        return;
+      }
+
+      list.innerHTML = '<div class="response-list">' + responses.map(r => `
+        <div class="response-card" onclick='openDetail("${r.id}")'>
+          <div class="response-card-header">
+            <div class="response-card-meta">
+              <span class="badge-pill badge-${r.classification}">${r.classification}</span>
+              <span class="badge-pill badge-${r.status}">${r.status}</span>
+              <span style="font-size:12px;color:var(--text-muted)">
+                <span class="confidence-bar"><span class="confidence-fill ${confidenceColor(r.confidenceScore)}" style="width:${r.confidenceScore}%"></span></span>
+                ${r.confidenceScore}%
+              </span>
+            </div>
+            <span style="font-size:12px;color:var(--text-muted)">${r.senderEmail || 'unknown'}</span>
+          </div>
+          <div class="response-card-preview">${escapeHtml(r.emailBody?.slice(0, 200) || '')}</div>
+          <div class="response-card-footer">
+            <span>Handled by: ${r.handledBy}</span>
+            <span>${new Date(r.createdAt).toLocaleString()}</span>
+          </div>
+        </div>
+      `).join('') + '</div>';
+    }
+
+    function escapeHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function setFilter(f) {
+      currentFilter = f;
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.filter === f));
+      const filtered = f === 'all' ? allResponses : allResponses.filter(r => r.status === f);
+      renderResponses(filtered);
+    }
+
+    async function loadDashboard() {
+      try {
+        const data = await callTool('get-dashboard', { status: 'all' });
+        const result = data.result || data;
+        renderStats(result.stats || { total:0, pending:0, autoSent:0, approved:0, edited:0, rejected:0, avgConfidence:0, autoSendRate:0 });
+        allResponses = result.responses || [];
+        setFilter(currentFilter);
+      } catch (e) {
+        console.error('Failed to load dashboard:', e);
+        document.getElementById('response-list').innerHTML = `<div class="empty"><h3>Cannot connect to API</h3><p>Make sure Mastra dev server is running at localhost:4111</p></div>`;
+      }
+    }
+
+    function openDetail(id) {
+      const r = allResponses.find(x => x.id === id);
+      if (!r) return;
+
+      document.getElementById('modal-title').textContent = `${r.classification} — ${r.status}`;
+
+      document.getElementById('modal-body').innerHTML = `
+        <div class="detail-meta">
+          <div class="meta-item"><div class="label">Classification</div><div class="value">${r.classification}</div></div>
+          <div class="meta-item"><div class="label">Confidence</div><div class="value">${r.confidenceScore}%</div></div>
+          <div class="meta-item"><div class="label">Urgency</div><div class="value">${r.urgency}</div></div>
+          <div class="meta-item"><div class="label">Sentiment</div><div class="value">${r.sentiment}</div></div>
+          <div class="meta-item"><div class="label">Customer Tier</div><div class="value">${r.customerTier}</div></div>
+          <div class="meta-item"><div class="label">Handled By</div><div class="value">${r.handledBy}</div></div>
+          <div class="meta-item"><div class="label">Prompt Version</div><div class="value">${r.promptVersion}</div></div>
+          <div class="meta-item"><div class="label">Status</div><div class="value">${r.status}</div></div>
+        </div>
+
+        <div class="detail-section">
+          <h3>Original Customer Email</h3>
+          <div class="content-block">${escapeHtml(r.emailBody || '(not available)')}</div>
+        </div>
+
+        <div class="detail-section">
+          <h3>Agent Draft Response</h3>
+          <div class="content-block">${escapeHtml(r.reply || '')}</div>
+        </div>
+
+        <div class="detail-section">
+          <h3>Composed Email Reply</h3>
+          ${r.status === 'pending'
+            ? `<textarea class="edit-area" id="edit-reply">${escapeHtml(r.emailReply || '')}</textarea>`
+            : `<div class="content-block">${escapeHtml(r.editedReply || r.emailReply || '')}</div>`
+          }
+        </div>
+
+        ${r.feedback ? `<div class="detail-section"><h3>Feedback</h3><div class="content-block">${escapeHtml(r.feedback)}</div></div>` : ''}
+
+        ${r.status === 'pending' ? `
+          <div class="detail-section">
+            <h3>Feedback (optional)</h3>
+            <textarea class="feedback-area" id="feedback-input" placeholder="Add feedback for the learning loop..."></textarea>
+          </div>
+        ` : ''}
+      `;
+
+      const actions = document.getElementById('modal-actions');
+      if (r.status === 'pending') {
+        actions.innerHTML = `
+          <button class="btn btn-approve" onclick="submitReview('${r.id}', 'approve')">Approve & Send</button>
+          <button class="btn btn-edit" onclick="submitReview('${r.id}', 'edit')">Edit & Send</button>
+          <button class="btn btn-reject" onclick="submitReview('${r.id}', 'reject')">Reject</button>
+        `;
+      } else {
+        actions.innerHTML = `<button class="btn btn-secondary" onclick="closeModal()">Close</button>`;
+      }
+
+      document.getElementById('modal').classList.add('open');
+    }
+
+    async function submitReview(id, action) {
+      const feedback = document.getElementById('feedback-input')?.value || '';
+      const editedReply = action === 'edit' ? document.getElementById('edit-reply')?.value : undefined;
+
+      try {
+        await callTool('submit-review', { id, action, editedReply, feedback: feedback || undefined });
+        showToast(`Response ${action === 'approve' ? 'approved' : action === 'edit' ? 'edited' : 'rejected'} successfully`);
+        closeModal();
+        loadDashboard();
+      } catch (e) {
+        console.error('Review failed:', e);
+        showToast('Failed to submit review');
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.remove('open');
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+    // Initial load
+    loadDashboard();
+    // Auto-refresh every 10 seconds
+    setInterval(loadDashboard, 10000);
+  </script>
+</body>
+</html>
