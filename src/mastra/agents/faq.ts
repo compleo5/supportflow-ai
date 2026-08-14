@@ -1,6 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { knowledgeBaseTool } from '../tools/vector-query';
 import { sharedMemory } from '../memory';
+import { promptInjectionDetector, secretsOutputFilter } from '../processors';
 
 export const faqAgent = new Agent({
   id: 'faq-agent',
@@ -34,6 +35,8 @@ End your response with a line:
 CONFIDENCE: [score]
 
 Always use the search-knowledge-base tool to look up information before answering.`,
+  inputProcessors: [promptInjectionDetector],
+  outputProcessors: [secretsOutputFilter],
   model: 'anthropic/claude-haiku-4-5',
   tools: { knowledgeBaseTool },
 });

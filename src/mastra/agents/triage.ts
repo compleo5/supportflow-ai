@@ -1,6 +1,7 @@
 import { Agent } from '@mastra/core/agent';
 import { sharedMemory } from '../memory';
 import { jsonFormatScorer } from '../evals/scorers';
+import { promptInjectionDetector, moderationProcessor, secretsOutputFilter } from '../processors';
 
 export const triageAgent = new Agent({
   id: 'triage-agent',
@@ -11,6 +12,10 @@ export const triageAgent = new Agent({
   //
   // classification/urgency/sentiment scorers are experiment-only — they need
   // groundTruth labels which only flow in via runExperiment (npm run test:eval).
+  // Block prompt injection and abuse before the LLM sees any customer email.
+  // Secrets filter on output catches any API keys that might leak.
+  inputProcessors: [moderationProcessor, promptInjectionDetector],
+  outputProcessors: [secretsOutputFilter],
   scorers: {
     'json-format': {
       scorer: jsonFormatScorer,
